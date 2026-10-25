@@ -1,3 +1,50 @@
+# smalltv-mod · CLIProxyAPI usage screen
+
+This fork of [giovi321/smalltv-mod](https://github.com/giovi321/smalltv-mod) adds a new screen for the GeekMagic SmallTV-Ultra. It shows Claude and Codex subscription usage for the accounts behind a [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) server, drawn as animated pixel art.
+
+<p align="center">
+  <img src="design/cpa-usage/screenshots/mixed.gif" alt="Animated usage screen: Codex and Claude cards with 5-hour and weekly usage" width="360" />
+  &nbsp;
+  <img src="design/cpa-usage/screenshots/claudes.gif" alt="Usage screen showing two Claude accounts" width="360" />
+</p>
+
+> **Status: design stage.** The screens above are mockups rendered from `design/cpa-usage/pixel.py`. The firmware for this screen isn't written yet; everything below the next divider is the upstream README and describes the upstream firmware.
+
+## What the screen shows
+
+- **Clock and date** in neon, with a fading colon.
+- **Two accounts, ranked by 5-hour usage.** Weekly usage breaks ties, and unused accounts only fill in when fewer than two have been used. When both cards are the same provider, each shows its account label (for example `CLAUDE·WORK`).
+- **Each card** shows the percent used in the 5-hour and weekly windows, a segmented bar, and the time until each window resets.
+- **Animation:** the icons bob, and each card's border brightens as its icon rises, with a light streak running around it. A card at 90% or more pulses red.
+
+## How it gets the data (planned)
+
+The device will call the CLIProxyAPI management API:
+
+1. `GET /v0/management/auth-files` lists the accounts.
+2. For each Claude or Codex account, `POST /v0/management/api-call` asks CLIProxyAPI to fetch that account's usage from the provider, the same way CLIProxyAPI's web dashboard does.
+
+This doesn't read the usage queue (`/usage-queue`), so other tools that consume it keep their data. The server needs `remote-management.allow-remote: true`. The management key has full admin access to the server, so set a web UI password on the device and restrict who can reach `/v0/management/*`.
+
+`tools/cpa_probe.py` makes the same calls from a computer and prints each account's usage, which checks a server before flashing. It reads `secrets.env`, never prints the key, and stops at the first auth error (CLIProxyAPI bans an IP for 30 minutes after 5 failed key attempts).
+
+```sh
+cp secrets.example.env secrets.env   # fill in CPA_URL and CPA_KEY; secrets.env is git-ignored
+python3 -I tools/cpa_probe.py
+```
+
+## Regenerating the mockups
+
+```sh
+python3 -I design/cpa-usage/pixel.py   # writes design/cpa-usage/screenshots/ (GIFs need ffmpeg)
+```
+
+The script draws on a 120×120 grid (each pixel is 2×2 on the 240×240 panel), quantises colours to RGB565, and uses the classic Adafruit GFX 5×7 font, so the firmware can draw the same thing with the same primitives. `screenshots/stress.png` shows the worst cases: 100%, 0%, `NOW` and the longest reset time.
+
+Credits: the Clawd mascot comes from upstream's `src/features/usage/mascot_frames.h`. `design/cpa-usage/glcdfont.c` is the classic font from [Adafruit GFX](https://github.com/adafruit/Adafruit-GFX-Library) (BSD license).
+
+---
+
 <p align="center">
   <img src="docs/src/assets/logo.svg" alt="smalltv-mod" width="96" />
 </p>
