@@ -51,12 +51,17 @@ def call(base, key, method, path, body=None):
                                  data=json.dumps(body).encode() if body else None)
     req.add_header("Authorization", "Bearer " + key)
     req.add_header("Content-Type", "application/json")
+    # Cloudflare's browser check rejects Python's default User-Agent (error 1010);
+    # the firmware sends this same one.
+    req.add_header("User-Agent", "smalltv-cpa/0.1")
     try:
         with urllib.request.urlopen(req, timeout=20) as r:
             raw = r.read()
             return r.status, raw
     except urllib.error.HTTPError as e:
         raw = e.read()
+        if raw.startswith(b"error code:"):    # Cloudflare block page; never reached CLIProxyAPI
+            sys.exit(f"blocked by Cloudflare on {path}: HTTP {e.code} {raw[:60].decode(errors='replace')}")
         if e.code in (401, 403):
             sys.exit(f"auth failed on {path}: HTTP {e.code} {raw[:200].decode(errors='replace')}\n"
                      "Stopping so the IP isn't banned. Check CPA_KEY and remote-management.allow-remote.")
